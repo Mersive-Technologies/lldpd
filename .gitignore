@@ -6,6 +6,7 @@
 *.swp
 /build*/
 /result
+/dist
 
 # autotools stuff
 /m4/lt*.m4
