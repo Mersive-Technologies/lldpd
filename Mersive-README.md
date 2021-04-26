@@ -9,4 +9,6 @@ Your system will need docker installed and the current user needs to be a member
 
  1. Run `mersive/build.sh`.
  2. When successful, the compiled files will be placed under `dist/`.
+
 # Integrating into the Gen3 (Stonehenge) Image
+ 1. Run `mersive/install.sh` with the path to your image root dir as the first and only argument. The files will be copied into the right place.
