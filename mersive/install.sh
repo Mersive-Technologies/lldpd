@@ -15,6 +15,7 @@ if [ ! -e "$DIST_DIR" ]; then
     exit 1
 fi
 
+cp $DIST_DIR/VERSION $IMG_DIR/mersive/lldpd
 cp $DIST_DIR/system/bin/lldpcli $IMG_DIR/mersive/lldpd
 cp $DIST_DIR/system/bin/lldpd $IMG_DIR/mersive/lldpd
 cp $DIST_DIR/system/lib/liblldpctl.* $IMG_DIR/mersive/lldpd
