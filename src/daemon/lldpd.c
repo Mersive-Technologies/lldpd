@@ -40,6 +40,10 @@
 #include <pwd.h>
 #include <grp.h>
 
+#if defined(__ANDROID__)
+#include <sys/system_properties.h>
+#endif
+
 #if HAVE_VFORK_H
 # include <vfork.h>
 #endif
@@ -1236,10 +1240,22 @@ lldpd_update_localchassis(struct lldpd *cfg)
 		LOCAL_CHASSIS(cfg)->c_cap_enabled |= LLDP_CAP_TELEPHONE;
 	lldpd_med(LOCAL_CHASSIS(cfg));
 	free(LOCAL_CHASSIS(cfg)->c_med_sw);
+
+#if defined(__ANDROID__)
+	if (cfg->g_config.c_advertise_version) {
+		char build_fingerprint[512] = { '\0' };
+		if (__system_property_get("ro.build.fingerprint", build_fingerprint)) {
+        	LOCAL_CHASSIS(cfg)->c_med_sw = strdup(build_fingerprint);
+		} else {
+			LOCAL_CHASSIS(cfg)->c_med_sw = strdup("Unknown");
+		}
+	}
+#else
 	if (cfg->g_config.c_advertise_version)
 		LOCAL_CHASSIS(cfg)->c_med_sw = strdup(un.release);
 	else
 		LOCAL_CHASSIS(cfg)->c_med_sw = strdup("Unknown");
+#endif
 #endif
 	if ((LOCAL_CHASSIS(cfg)->c_cap_available & LLDP_CAP_STATION) &&
 		(LOCAL_CHASSIS(cfg)->c_cap_enabled == 0))
