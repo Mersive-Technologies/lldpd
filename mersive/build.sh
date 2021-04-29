@@ -23,3 +23,5 @@ echo "  current commit is $(git rev-parse HEAD)" >> ${LLDPD_DIR}/dist/VERSION
 echo "" >> ${LLDPD_DIR}/dist/VERSION
 echo "  git status is:" >> ${LLDPD_DIR}/dist/VERSION
 git status | sed "s/^/    /g" >> ${LLDPD_DIR}/dist/VERSION
+echo "" >> ${LLDPD_DIR}/dist/VERSION
+echo "These files should not be committed unless they were built from the master branch with no modified or added files!" >> ${LLDPD_DIR}/dist/VERSION
