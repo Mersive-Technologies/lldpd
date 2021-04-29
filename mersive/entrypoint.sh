@@ -25,7 +25,8 @@ rm -rf *
              --with-privsep-user=root \
              --with-privsep-group=root \
              PKG_CONFIG=/bin/false \
-             --enable-shared
+             --enable-shared \
+             --disable-privsep
 
 make
 
