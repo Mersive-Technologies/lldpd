@@ -40,6 +40,97 @@
 #include <pwd.h>
 #include <grp.h>
 
+#if defined(__ANDROID__)
+#include <sys/system_properties.h>
+
+static char* get_system_prop(const char* prop_name, const char* default_value) {
+	char prop_value[PROP_VALUE_MAX] = { '\0' };
+	if (__system_property_get(prop_name, prop_value)) {
+		return strdup(prop_value);
+	} else if (default_value != NULL) {
+		return strdup(default_value);
+	} else {
+		return NULL;
+	}
+}
+
+static char* get_solstice_version() {
+	static char release[1024] = { '\0' };
+
+	if (strlen(release) == 0) {
+		char *const command[] = { "sh", "-c", "pm dump com.mersive.solstice.server | grep versionName | uniq | cut -f2 -d=", NULL };
+		int pid, status, devnull, count;
+		int pipefd[2];
+
+		log_debug("localchassis", "grab solstice version");
+
+		if (pipe(pipefd)) {
+			log_warn("localchassis", "unable to get a pair of pipes");
+			return NULL;
+		}
+
+		pid = vfork();
+		switch (pid) {
+		case -1:
+			log_warn("localchassis", "unable to fork");
+			return NULL;
+		case 0:
+			/* Child, exec sh */
+			close(pipefd[0]);
+			if ((devnull = open("/dev/null", O_RDWR, 0)) != -1) {
+				dup2(devnull, STDIN_FILENO);
+				dup2(devnull, STDERR_FILENO);
+				dup2(pipefd[1], STDOUT_FILENO);
+				if (devnull > 2) close(devnull);
+				if (pipefd[1] > 2) close(pipefd[1]);
+				execvp("sh", command);
+			}
+			_exit(127);
+			break;
+		default:
+			/* Father, read the output from the children */
+			close(pipefd[1]);
+			count = 0;
+			do {
+				status = read(pipefd[0], release+count, sizeof(release)-count);
+				if ((status == -1) && (errno == EINTR)) continue;
+				if (status > 0)
+					count += status;
+			} while (count < sizeof(release) && (status > 0));
+			if (status < 0) {
+				log_info("localchassis", "unable to read from sh");
+				close(pipefd[0]);
+				waitpid(pid, &status, 0);
+				return NULL;
+			}
+			close(pipefd[0]);
+			if (count >= sizeof(release)) {
+				log_info("localchassis", "output of sh is too large");
+				waitpid(pid, &status, 0);
+				return NULL;
+			}
+			status = -1;
+			if (waitpid(pid, &status, 0) != pid)
+				return NULL;
+			if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
+				log_info("localchassis", "solstice version information not available");
+				return NULL;
+			}
+			if (!count) {
+				log_info("localchassis", "get solstice version returned an empty string");
+				return NULL;
+			}
+			release[count] = '\0';
+			return strdup(release);
+		}
+	} else {
+		return strdup(release);
+	}
+	/* Should not be here */
+	return NULL;
+}
+#endif
+
 #if HAVE_VFORK_H
 # include <vfork.h>
 #endif
@@ -1152,12 +1243,21 @@ lldpd_med(struct lldpd_chassis *chassis)
 {
 	static short int once = 0;
 	if (!once) {
+#if defined(__ANDROID__)
+		chassis->c_med_hw = get_system_prop("ro.product.device", NULL);
+		chassis->c_med_fw = get_system_prop("ro.build.version.incremental", NULL);
+		chassis->c_med_sn = get_system_prop("ro.boot.serialno", NULL);
+		chassis->c_med_manuf = get_system_prop("ro.product.manufacturer", "Mersive");
+		chassis->c_med_model = get_system_prop("ro.product.model", NULL);
+		chassis->c_med_asset = dmi_asset(); // We don't use an asset tag #, leaving this as is.
+#else
 		chassis->c_med_hw = dmi_hw();
 		chassis->c_med_fw = dmi_fw();
 		chassis->c_med_sn = dmi_sn();
 		chassis->c_med_manuf = dmi_manuf();
 		chassis->c_med_model = dmi_model();
 		chassis->c_med_asset = dmi_asset();
+#endif
 		once = 1;
 	}
 }
@@ -1236,10 +1336,17 @@ lldpd_update_localchassis(struct lldpd *cfg)
 		LOCAL_CHASSIS(cfg)->c_cap_enabled |= LLDP_CAP_TELEPHONE;
 	lldpd_med(LOCAL_CHASSIS(cfg));
 	free(LOCAL_CHASSIS(cfg)->c_med_sw);
+
+#if defined(__ANDROID__)
+	if (cfg->g_config.c_advertise_version) {
+		LOCAL_CHASSIS(cfg)->c_med_sw = get_solstice_version();
+	}
+#else
 	if (cfg->g_config.c_advertise_version)
 		LOCAL_CHASSIS(cfg)->c_med_sw = strdup(un.release);
 	else
 		LOCAL_CHASSIS(cfg)->c_med_sw = strdup("Unknown");
+#endif
 #endif
 	if ((LOCAL_CHASSIS(cfg)->c_cap_available & LLDP_CAP_STATION) &&
 		(LOCAL_CHASSIS(cfg)->c_cap_enabled == 0))
