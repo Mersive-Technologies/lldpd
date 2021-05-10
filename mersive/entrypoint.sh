@@ -21,7 +21,7 @@ rm -rf *
              --with-sysroot=$TOOLCHAIN/sysroot \
              --prefix=/system \
              --sbindir=/system/bin \
-             --runstatedir=/data/data/lldpd \
+             --runstatedir=/data/lldpd \
              --with-privsep-user=root \
              --with-privsep-group=root \
              PKG_CONFIG=/bin/false \
